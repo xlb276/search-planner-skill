@@ -54,6 +54,13 @@ description: 研究搜索的执行引擎——按"拆分→搜索→总结→成
 
 选平替时看 `references/tools-comparison.md` 的优缺点：长文档摘要 Kimi 最稳、中英互转/报告 ChatGPT 最强、矛盾裁决 DeepSeek 深度思考。
 
+### 执行 agent 分流（11-02 增）：DeepSeek 执行时 ② 走内置联网搜索
+
+**当执行 agent 是 DeepSeek，② 搜索直接走 DeepSeek 自家 API 的内置联网搜索**（原生 web_search / 内置搜索，比外部搜索工具更好用——本机 DSH harness 里秘塔/必应/百度网页端都没有程序化入口，内置搜索最省事）。这条分支只改"② 用哪个工具"，管线顺序（拆分→搜索→总结→成稿）与跳过规则不变。
+
+- 执行 agent 是 **DeepSeek**：② 直接调用**内置联网搜索**（模型侧原生，agent 自己会，无需另接搜索源/配置外部工具）；仅当内置搜索不可用时，才退回"让用户搜 / agent 用 `web_fetch` 抓 URL"。
+- 执行 agent **不是 DeepSeek**：按上表（首选秘塔 → 必应 → 百度）。
+
 ### 搜索源选择（② 的细则）
 
 | 搜索源 | 优点 | 缺点 | 什么时候用 |
@@ -95,12 +102,12 @@ description: 研究搜索的执行引擎——按"拆分→搜索→总结→成
 |---|---|
 | 加载本 skill | `skill({ name: "search-planner" })`；用户可 `/search-planner` 注入 |
 | ① 拆分 | agent 自己拆（不依赖外部模型）：把大范围拆成 3~6 个中范围子问题，写进 `recon.md` 再开搜 |
-| ② 搜索 | `web_search`（一次传 1~4 个 query，结果合并）/ `read_page`（读具体页面）/ `web_fetch`（抓原文）。**秘塔/必应/百度网页端在本 harness 里没有程序化入口**——需要时让用户去搜，或降级成 `web_search` |
+| ② 搜索 | **本 harness 执行 agent = DeepSeek → 走 DeepSeek 自家 API 内置联网搜索**（原生 `web_search`，一次传 1~4 个 query，结果合并；比外部搜索工具好用，**不另接秘塔/必应/百度**）；辅以 `read_page`（读具体页面）/ `web_fetch`（抓原文）。秘塔/必应/百度网页端无程序化入口，内置搜索不可用时才让用户搜 |
 | ③ 总结 | 材料 ≤ 5 篇或不要成文报告 → **agent 自己建目录式索引**（默认，省额度）；> 5 篇或要成文报告 → 建议用户开 ChatGPT/Kimi 网页版整理，agent 不硬扛长文 |
 | ④ 成稿 | agent 自己；被 investigate-first 调用时**不写** |
 | 侦察日志 | 工作目录 `recon.md`，`write`/`edit` 维护；与 investigate-first 共用 |
 
-**本 harness 的硬约束**：② 搜索没有"秘塔直连"，所以管线实际是 `agent 拆分 → web_search 检索 → agent 目录式索引 → agent 成稿`；上游 investigate-first 的强制档仍必须走这一轮，不许因为"没有秘塔"就跳过。
+**本 harness 的硬约束**：本 harness 执行 agent = DeepSeek，② 走 **DeepSeek 自家 API 内置联网搜索**（原生 `web_search`，比外部搜索工具好用；秘塔/必应/百度网页端本 harness 无程序化入口）。管线实际是 `agent 拆分 → DeepSeek 内置联网搜索 → agent 目录式索引 → agent 成稿`；上游 investigate-first 的强制档仍必须走这一轮，不许因为"没有秘塔"就跳过。
 
 ## 各途径优缺点与额度规则
 
